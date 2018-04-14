@@ -270,6 +270,27 @@ function newPlayfieldUtil()
       end
     end
 
+    e.leftColumn = 0
+    for y = 1, PLAYFIELD_HEIGHT do
+      if playfield[y][1] ~= Tetriminos.NONE then
+        e.leftColumn = e.leftColumn + 1
+      end
+    end
+
+    e.fifthRowFilled = 0
+    for x = 1, PLAYFIELD_WIDTH do
+      if playfield[5][x] ~= Tetriminos.NONE then
+        e.fifthRowFilled = e.fifthRowFilled + 1
+      end
+    end
+
+    -- e.bottomHoles = 0
+    -- for x = 1, PLAYFIELD_WIDTH do
+    --   if playfield[1][x] ~= Tetriminos.NONE then
+    --     e.bottomHoles = e.bottomHoles + 1
+    --   end
+    -- end
+
     e.wells = 0
     for x = 1, PLAYFIELD_WIDTH do
       local minY = 1
@@ -291,6 +312,7 @@ function newPlayfieldUtil()
     end
 
     e.holes = 0
+    e.bottomHoles = 0
     e.columnTransitions = 0
     for x = 1, PLAYFIELD_WIDTH do
       local solid = true
@@ -387,7 +409,10 @@ function newPlayfieldEvaluation()
     holes = 0,
     columnTransitions = 0,
     rowTransitions = 0,
-    wells = 0
+    wells = 0,
+    leftColumn = 0,
+    fifthRowFilled = 0,
+    bottomHoles = 0
   }
 end
 
@@ -419,19 +444,43 @@ function newAI(tetriminos)
   local handleResult = nil
 
   function computeFitness()
-    local totalClearedRows = WEIGHTS[1] * totalRows
+    -- local totalClearedRows = WEIGHTS[1] * totalRows
+    local totalClearedRows = 0
+    if totalRows < 3 then
+      totalClearedRows = 600.0 * totalRows
+    elseif totalRows == 3 then
+      totalClearedRows = 1.0 * totalRows
+    else
+      totalClearedRows = 0.0 * totalRows
+    end
+
     local totalLockHeight = WEIGHTS[2] * totalDropHeight
     local totalWellCells = WEIGHTS[3] * e.wells
-    local totalColumnHoles = WEIGHTS[4] * e.holes
+    local totalColumnHoles = 370.0 * e.holes
     local totalColumnTransitions = WEIGHTS[5] * e.columnTransitions
     local totalRowTransitions = WEIGHTS[6] * e.rowTransitions
+    -- local totalEmptySpaces = (370.0 * e.leftColumn)
+
+    local totalEmptySpaces = 0
+    if e.fifthRowFilled > 6 then
+      totalEmptySpaces = (0.0 * e.leftColumn)
+    else
+      totalEmptySpaces = (370.0 * e.leftColumn)
+    end
+
+    -- print(string.format("%.0f", totalClearedRows))
+    -- print(e.leftColumn)
+    -- print(totalEmptySpaces)
     -- lowest height
     -- give points for putting a hole at either left most or
     --    right most side for th I piece if under 8 rows
     -- give points for putting a L/r shaped space on the 3 rows on top of 8
 
-    return totalClearedRows + totalLockHeight + totalWellCells + totalColumnHoles + totalColumnTransitions +
-      totalRowTransitions
+    local a = totalClearedRows + totalLockHeight + totalWellCells
+    local b = totalColumnHoles + totalColumnTransitions
+    local c = totalRowTransitions + totalEmptySpaces
+
+    return a + b + c
   end
 
   --[[
