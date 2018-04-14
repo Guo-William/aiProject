@@ -284,12 +284,14 @@ function newPlayfieldUtil()
       end
     end
 
-    -- e.bottomHoles = 0
-    -- for x = 1, PLAYFIELD_WIDTH do
-    --   if playfield[1][x] ~= Tetriminos.NONE then
-    --     e.bottomHoles = e.bottomHoles + 1
-    --   end
-    -- end
+    e.bottomHoles = 0
+    for y = 1, 4 do
+      for x = 1, PLAYFIELD_WIDTH do
+        if playfield[y][x] == Tetriminos.NONE then
+          e.bottomHoles = e.bottomHoles + 1
+        end
+      end
+    end
 
     e.wells = 0
     for x = 1, PLAYFIELD_WIDTH do
@@ -454,8 +456,12 @@ function newAI(tetriminos)
       totalClearedRows = 0.0 * totalRows
     end
 
+    if e.bottomHoles > 2 then
+      totalClearedRows = 1000 * e.bottomHoles
+    end
+
     local totalLockHeight = WEIGHTS[2] * totalDropHeight
-    local totalWellCells = WEIGHTS[3] * e.wells
+    local totalWellCells = e.wells
     local totalColumnHoles = 370.0 * e.holes
     local totalColumnTransitions = WEIGHTS[5] * e.columnTransitions
     local totalRowTransitions = WEIGHTS[6] * e.rowTransitions
@@ -466,6 +472,10 @@ function newAI(tetriminos)
       totalEmptySpaces = (0.0 * e.leftColumn)
     else
       totalEmptySpaces = (370.0 * e.leftColumn)
+    end
+
+    if totalDropHeight > 12 then
+      totalLockHeight = 10
     end
 
     -- print(string.format("%.0f", totalClearedRows))
@@ -480,7 +490,7 @@ function newAI(tetriminos)
     local b = totalColumnHoles + totalColumnTransitions
     local c = totalRowTransitions + totalEmptySpaces
 
-    return a + b + c
+    return a + b + c + e.bottomHoles * 100
   end
 
   --[[
