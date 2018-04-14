@@ -19,17 +19,15 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ]]
-
 -- This Lua script works with FCEUX 2.2.2 and Nintendo Tetris (USA version).
 
-PLAY_FAST = false  -- disables drop movements
+PLAY_FAST = false -- disables drop movements
 
 PLAYFIELD_WIDTH = 10
 PLAYFIELD_HEIGHT = 20
 TETRIMINOS_SEARCHED = 2
 
 Tetriminos = {
-
   NONE = -1,
   T = 1,
   J = 2,
@@ -38,20 +36,18 @@ Tetriminos = {
   S = 5,
   L = 6,
   I = 7,
-
-  ORIENTATIONS = { }, 
-  TYPES = { } 
+  ORIENTATIONS = {},
+  TYPES = {}
 }
 
 globalMark = 1
 
 function newQueue()
-
-  local self = { 
+  local self = {
     enqueue = nil,
     dequeue = nil,
     isEmpty = nil,
-    isNotEmpty = nil,
+    isNotEmpty = nil
   }
 
   local head = nil
@@ -60,10 +56,10 @@ function newQueue()
   function self.enqueue(state)
     if head == nil then
       head = state
-      tail = state        
+      tail = state
     else
       tail.nextState = state
-      tail = state        
+      tail = state
     end
     state.nextState = nil
   end
@@ -81,11 +77,11 @@ function newQueue()
     return state
   end
 
-  function self.isEmpty() 
+  function self.isEmpty()
     return head == nil
   end
 
-  function self.isNotEmpty() 
+  function self.isNotEmpty()
     return head ~= nil
   end
 
@@ -93,13 +89,12 @@ function newQueue()
 end
 
 function newSearcher(searchListener)
-
-  local self = { 
+  local self = {
     search = nil
   }
 
-  local states = { }
-  local queue = newQueue()   
+  local states = {}
+  local queue = newQueue()
 
   local createStates = nil
   local lockTetrimino = nil
@@ -107,17 +102,17 @@ function newSearcher(searchListener)
 
   function createStates()
     for y = 1, PLAYFIELD_HEIGHT do
-      states[y] = { }
+      states[y] = {}
       for x = 1, PLAYFIELD_WIDTH do
-        states[y][x] = { }
-        for rotation = 1, 4 do 
+        states[y][x] = {}
+        for rotation = 1, 4 do
           states[y][x][rotation] = {
-            y = y, 
-            x = x, 
+            y = y,
+            x = x,
             rotation = rotation,
             visited = 0,
             predecessor = nil,
-            nextState = nil,
+            nextState = nil
           }
         end
       end
@@ -125,15 +120,13 @@ function newSearcher(searchListener)
   end
 
   function lockTetrimino(playfield, tetriminoType, id, state)
-    local squares = Tetriminos.ORIENTATIONS[tetriminoType][state.rotation]
-      .squares
+    local squares = Tetriminos.ORIENTATIONS[tetriminoType][state.rotation].squares
     for i = 1, 4 do
       local square = squares[i]
       local y = state.y + square.y
       if y >= 1 then
         playfield[y][state.x + square.x] = tetriminoType
-        playfield[y][PLAYFIELD_WIDTH + 1] 
-            = playfield[y][PLAYFIELD_WIDTH + 1] + 1
+        playfield[y][PLAYFIELD_WIDTH + 1] = playfield[y][PLAYFIELD_WIDTH + 1] + 1
       end
     end
     searchListener(playfield, tetriminoType, id, state)
@@ -142,21 +135,19 @@ function newSearcher(searchListener)
       local y = state.y + square.y
       if y >= 1 then
         playfield[y][state.x + square.x] = Tetriminos.NONE
-        playfield[y][PLAYFIELD_WIDTH + 1] 
-            = playfield[y][PLAYFIELD_WIDTH + 1] - 1
+        playfield[y][PLAYFIELD_WIDTH + 1] = playfield[y][PLAYFIELD_WIDTH + 1] - 1
       end
     end
   end
 
   -- returns true if the position is valid even if the state is not enqueued
   function addChild(playfield, tetriminoType, mark, state, x, y, rotation)
-
     local orientation = Tetriminos.ORIENTATIONS[tetriminoType][rotation]
     if x < orientation.minX or x > orientation.maxX or y > orientation.maxY then
       return false
     end
 
-    local childState = states[y][x][rotation];
+    local childState = states[y][x][rotation]
     if childState.visited == mark then
       return true
     end
@@ -165,50 +156,58 @@ function newSearcher(searchListener)
     for i = 1, 4 do
       local square = squares[i]
       local playfieldY = y + square.y
-      if playfieldY >= 1 
-          and playfield[playfieldY][x + square.x] ~= Tetriminos.NONE then
+      if playfieldY >= 1 and playfield[playfieldY][x + square.x] ~= Tetriminos.NONE then
         return false
       end
     end
 
     childState.visited = mark
     childState.predecessor = state
-        
-    queue.enqueue(childState)   
-    return true 
-  end  
+
+    queue.enqueue(childState)
+    return true
+  end
 
   function self.search(playfield, tetriminoType, id)
-
     local maxRotation = #Tetriminos.ORIENTATIONS[tetriminoType]
 
     local mark = globalMark
     globalMark = globalMark + 1
 
-    if not addChild(
-        playfield, tetriminoType, mark, nil, 6, 1, 1) then
+    if not addChild(playfield, tetriminoType, mark, nil, 6, 1, 1) then
       return false
-    end    
+    end
 
     while queue.isNotEmpty() do
       local state = queue.dequeue()
 
       if maxRotation ~= 1 then
-        addChild(playfield, tetriminoType, mark, state, state.x, state.y, 
-            state.rotation == 1 and maxRotation or state.rotation - 1)
+        addChild(
+          playfield,
+          tetriminoType,
+          mark,
+          state,
+          state.x,
+          state.y,
+          state.rotation == 1 and maxRotation or state.rotation - 1
+        )
         if maxRotation ~= 2 then
-          addChild(playfield, tetriminoType, mark, state, state.x, state.y,
-              state.rotation == maxRotation and 1 or state.rotation + 1)
+          addChild(
+            playfield,
+            tetriminoType,
+            mark,
+            state,
+            state.x,
+            state.y,
+            state.rotation == maxRotation and 1 or state.rotation + 1
+          )
         end
       end
 
-      addChild(playfield, tetriminoType, mark, state, 
-          state.x - 1, state.y, state.rotation)
-      addChild(playfield, tetriminoType, mark, state, 
-          state.x + 1, state.y, state.rotation)
+      addChild(playfield, tetriminoType, mark, state, state.x - 1, state.y, state.rotation)
+      addChild(playfield, tetriminoType, mark, state, state.x + 1, state.y, state.rotation)
 
-      if not addChild(playfield, tetriminoType, mark, state,
-          state.x, state.y + 1, state.rotation) then
+      if not addChild(playfield, tetriminoType, mark, state, state.x, state.y + 1, state.rotation) then
         lockTetrimino(playfield, tetriminoType, id, state)
       end
     end
@@ -222,23 +221,22 @@ function newSearcher(searchListener)
 end
 
 function newPlayfieldUtil()
-
   local self = {
     clearRows = nil,
     restoreRows = nil,
-    evaluatePlayfield = nil,
+    evaluatePlayfield = nil
   }
 
-  local spareRows = { }
+  local spareRows = {}
   local spareIndex = 1
-  local columnDepths = { }
+  local columnDepths = {}
 
   local clearRow = nil
   local restoreRow = nil
 
   function clearRow(playfield, y)
     local clearedRow = playfield[y]
-    clearedRow[PLAYFIELD_WIDTH + 1] = y;
+    clearedRow[PLAYFIELD_WIDTH + 1] = y
     for i = y, 2, -1 do
       playfield[i] = playfield[i - 1]
     end
@@ -250,7 +248,7 @@ function newPlayfieldUtil()
   end
 
   function restoreRow(playfield)
-    spareIndex = spareIndex - 1    
+    spareIndex = spareIndex - 1
     local restoredRow = spareRows[spareIndex]
     local y = restoredRow[PLAYFIELD_WIDTH + 1]
 
@@ -259,11 +257,10 @@ function newPlayfieldUtil()
       playfield[i] = playfield[i + 1]
     end
     restoredRow[PLAYFIELD_WIDTH + 1] = PLAYFIELD_WIDTH
-    playfield[y] = restoredRow    
+    playfield[y] = restoredRow
   end
 
   function self.evaluatePlayfield(playfield, e)
-
     for x = 1, PLAYFIELD_WIDTH do
       for y = 1, PLAYFIELD_HEIGHT do
         if y == PLAYFIELD_HEIGHT or playfield[y][x] ~= Tetriminos.NONE then
@@ -281,13 +278,13 @@ function newPlayfieldUtil()
       elseif x == PLAYFIELD_WIDTH then
         minY = columnDepths[PLAYFIELD_WIDTH - 1]
       else
-        minY = math.max(columnDepths[x - 1],
-            columnDepths[x + 1])
+        minY = math.max(columnDepths[x - 1], columnDepths[x + 1])
       end
       for y = columnDepths[x], minY, -1 do
-        if (x == 1 or playfield[y][x - 1] ~= Tetriminos.NONE)
-            and (x == PLAYFIELD_WIDTH
-                or playfield[y][x + 1] ~= Tetriminos.NONE) then
+        if
+          (x == 1 or playfield[y][x - 1] ~= Tetriminos.NONE) and
+            (x == PLAYFIELD_WIDTH or playfield[y][x + 1] ~= Tetriminos.NONE)
+         then
           e.wells = e.wells + 1
         end
       end
@@ -349,7 +346,6 @@ function newPlayfieldUtil()
   end
 
   function self.clearRows(playfield, tetriminoY)
-
     local rows = 0
     local startRow = tetriminoY - 2
     local endRow = tetriminoY + 1
@@ -372,7 +368,7 @@ function newPlayfieldUtil()
   end
 
   for y = 1, 8 * TETRIMINOS_SEARCHED do
-    spareRows[y] = { }
+    spareRows[y] = {}
     for x = 1, PLAYFIELD_WIDTH do
       spareRows[y][x] = Tetriminos.NONE
     end
@@ -391,27 +387,26 @@ function newPlayfieldEvaluation()
     holes = 0,
     columnTransitions = 0,
     rowTransitions = 0,
-    wells = 0,
+    wells = 0
   }
 end
 
 function newAI(tetriminos)
-
   local WEIGHTS = {
     1.0, -- Total Lines Cleared
     12.885008263218383, -- Total Lock Height
     15.842707182438396, -- Total Well Cells
     26.89449650779595, -- Total Column Holes
     27.616914062397015, -- Total Column Transitions
-    30.18511071927904, -- Total Row Transitions
+    30.18511071927904 -- Total Row Transitions
   }
 
   local self = {
-    search = nil,
+    search = nil
   }
 
-  local searchers = { }
-  local tetriminoIndices = { }
+  local searchers = {}
+  local tetriminoIndices = {}
   local playfieldUtil = newPlayfieldUtil()
   local e = newPlayfieldEvaluation()
   local totalRows = 0
@@ -424,16 +419,30 @@ function newAI(tetriminos)
   local handleResult = nil
 
   function computeFitness()
-    return WEIGHTS[1] * totalRows
-         + WEIGHTS[2] * totalDropHeight
-         + WEIGHTS[3] * e.wells
-         + WEIGHTS[4] * e.holes                 
-         + WEIGHTS[5] * e.columnTransitions
-         + WEIGHTS[6] * e.rowTransitions
+    local totalClearedRows = WEIGHTS[1] * totalRows
+    local totalLockHeight = WEIGHTS[2] * totalDropHeight
+    local totalWellCells = WEIGHTS[3] * e.wells
+    local totalColumnHoles = WEIGHTS[4] * e.holes
+    local totalColumnTransitions = WEIGHTS[5] * e.columnTransitions
+    local totalRowTransitions = WEIGHTS[6] * e.rowTransitions
+    -- lowest height
+    -- give points for putting a hole at either left most or
+    --    right most side for th I piece if under 8 rows
+    -- give points for putting a L/r shaped space on the 3 rows on top of 8
+
+    return totalClearedRows + totalLockHeight + totalWellCells + totalColumnHoles + totalColumnTransitions +
+      totalRowTransitions
   end
 
+  --[[
+    playfield - abstract representation of the actual 22x10 board
+    tetriminoType - identifies which block it is
+    id - seems to just be here to check if this is the first searcher
+          if it is intialize the bestResult to the current state
+    state - unsure but I believe this is the state of the tetrimino
+          we are currently looking at with a specific orientation
+  ]]
   function handleResult(playfield, tetriminoType, id, state)
-
     if id == 1 then
       result1 = state
     end
@@ -448,7 +457,6 @@ function newAI(tetriminos)
     local nextID = id + 1
 
     if nextID == #tetriminoIndices + 1 then
-
       playfieldUtil.evaluatePlayfield(playfield, e)
 
       local fitness = computeFitness()
@@ -466,7 +474,6 @@ function newAI(tetriminos)
   end
 
   function self.search(playfield, _tetriminoIndices)
-
     tetriminoIndices = _tetriminoIndices
     bestResult = nil
     bestFitness = 1000000000
@@ -484,9 +491,9 @@ function newAI(tetriminos)
 end
 
 function createEmptyPlayfield()
-  local playfield = { }
+  local playfield = {}
   for y = 1, PLAYFIELD_HEIGHT do
-    playfield[y] = { }
+    playfield[y] = {}
     for x = 1, PLAYFIELD_WIDTH do
       playfield[y][x] = Tetriminos.NONE
     end
@@ -526,30 +533,27 @@ targetTetriminoY = 0
 maxScoreHit = false
 startCounter = 0
 
-function buildOrientationTable() 
+function buildOrientationTable()
   for i = 1, 7 do
-    Tetriminos.ORIENTATIONS[i] = { }
+    Tetriminos.ORIENTATIONS[i] = {}
   end
 
-  local spawnIndices = { }
+  local spawnIndices = {}
 
   for orientationID = 0, 18 do
-
-    local tetriminoType 
-        = memory.readbyteunsigned(tetriminoTypeTableAddress + orientationID) + 1
+    local tetriminoType = memory.readbyteunsigned(tetriminoTypeTableAddress + orientationID) + 1
     table.insert(Tetriminos.TYPES, tetriminoType)
 
     local orientation = {
       orientationID = orientationID,
-      squares = { },
+      squares = {},
       minX = 100,
       maxX = -100,
-      maxY = -100,
+      maxY = -100
     }
     table.insert(Tetriminos.ORIENTATIONS[tetriminoType], orientation)
 
-    if orientationID 
-        == memory.readbyteunsigned(spawnTableAddress + orientationID) then
+    if orientationID == memory.readbyteunsigned(spawnTableAddress + orientationID) then
       table.insert(spawnIndices, #Tetriminos.ORIENTATIONS[tetriminoType])
     end
 
@@ -557,7 +561,7 @@ function buildOrientationTable()
       local index = 12 * orientationID + 3 * square
       local x = memory.readbytesigned(orientationTableAddress + index + 2)
       local y = memory.readbytesigned(orientationTableAddress + index)
-      table.insert(orientation.squares, { x = x, y = y })
+      table.insert(orientation.squares, {x = x, y = y})
       orientation.minX = math.min(orientation.minX, x)
       orientation.maxX = math.max(orientation.maxX, x)
       orientation.maxY = math.max(orientation.maxY, y)
@@ -570,10 +574,9 @@ function buildOrientationTable()
 
   for i = 1, 7 do
     local orientations = Tetriminos.ORIENTATIONS[i]
-    Tetriminos.ORIENTATIONS[i] = { }
+    Tetriminos.ORIENTATIONS[i] = {}
     for j = 1, #orientations do
-      table.insert(Tetriminos.ORIENTATIONS[i], 
-          orientations[((j + spawnIndices[i] - 2) % #orientations) + 1])
+      table.insert(Tetriminos.ORIENTATIONS[i], orientations[((j + spawnIndices[i] - 2) % #orientations) + 1])
     end
   end
 end
@@ -583,9 +586,9 @@ function pressStart()
     startCounter = 10
   end
   if startCounter >= 5 then
-    joypad.set(1, { start = true })
+    joypad.set(1, {start = true})
   elseif startCounter < 5 then
-    joypad.set(1, { start = false })
+    joypad.set(1, {start = false})
   end
   startCounter = startCounter - 1
 end
@@ -605,7 +608,7 @@ end
 
 function skipTitleAndDemoScreens(gameState)
   if gameState == 1 or gameState == 5 then
-    pressStart()   
+    pressStart()
   end
 end
 
@@ -613,8 +616,7 @@ function spawned()
   local playState = memory.readbyteunsigned(playStateAddress)
   local tetriminoX = memory.readbyteunsigned(tetriminoXAddress)
   local tetriminoY = memory.readbyteunsigned(tetriminoYAddress1)
-  local result = lastPlayState ~= 1 and playState == 1 and tetriminoX == 5
-      and tetriminoY == 0
+  local result = lastPlayState ~= 1 and playState == 1 and tetriminoX == 5 and tetriminoY == 0
   lastPlayState = playState
   return result
 end
@@ -623,8 +625,7 @@ function readPlayfield(playfield)
   for i = 0, 19 do
     playfield[i + 1][11] = 0
     for j = 0, 9 do
-      if memory.readbyteunsigned(playfieldAddress + 10 * i + j) 
-          == emptySquare then
+      if memory.readbyteunsigned(playfieldAddress + 10 * i + j) == emptySquare then
         playfield[i + 1][j + 1] = Tetriminos.NONE
       else
         playfield[i + 1][j + 1] = Tetriminos.I
@@ -648,19 +649,18 @@ function resetPlayState(gameState)
   end
 end
 
-function isPlaying(gameState)  
+function isPlaying(gameState)
   return gameState == 4 and memory.readbyteunsigned(playStateAddress) < 9
 end
 
 function search(tetriminos, playfield, ai)
-
   tetriminos[1] = readTetrimino()
   tetriminos[2] = readNextTetrimino()
   readPlayfield(playfield)
 
   local state = ai.search(playfield, tetriminos)
 
-  local result = { }
+  local result = {}
   while state ~= nil do
     table.insert(result, 1, state)
     state = state.predecessor
@@ -729,21 +729,20 @@ function setTetriminoY(y)
 end
 
 function makeMove(tetriminoType, state, finalMove)
-  if finalMove then 
+  if finalMove then
     memory.writebyte(0x006E, 0x03)
   end
   memory.writebyte(tetriminoXAddress, state.x - 1)
   setTetriminoY(state.y - 1)
-  memory.writebyte(tetriminoIDAddress, 
-      Tetriminos.ORIENTATIONS[tetriminoType][state.rotation].orientationID)
+  memory.writebyte(tetriminoIDAddress, Tetriminos.ORIENTATIONS[tetriminoType][state.rotation].orientationID)
 end
 
 do
-  local tetriminos = { 0, 0 }
+  local tetriminos = {0, 0}
   local playfield = createEmptyPlayfield()
   local ai = newAI(2)
   local movesIndex = 1
-  local moves = { }
+  local moves = {}
   local tetriminoType = 0
 
   buildOrientationTable()
@@ -752,7 +751,6 @@ do
   memory.registerexec(0x8977, speedUpDrop)
 
   while true do
-
     local gameState = memory.readbyteunsigned(gameStateAddress)
     skipCopyrightScreen(gameState)
     skipTitleAndDemoScreens(gameState)
@@ -766,13 +764,13 @@ do
         end
         if spawned() then
           tetriminoType = readTetrimino()
-          moves = search(tetriminos, playfield, ai)                    
-          if #moves > 0 then       
-            registerYUpdatedListeners()   
+          moves = search(tetriminos, playfield, ai)
+          if #moves > 0 then
+            registerYUpdatedListeners()
             makeMove(tetriminoType, moves[#moves], true)
             unregisterYUpdatedListeners()
-          end   
-        end       
+          end
+        end
       end
     else
       if (isPlaying(gameState)) then
