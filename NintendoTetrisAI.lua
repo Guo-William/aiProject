@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ]]
 -- This Lua script works with FCEUX 2.2.2 and Nintendo Tetris (USA version).
 
-PLAY_FAST = false -- disables drop movements
+PLAY_FAST = true -- disables drop movements
 
 PLAYFIELD_WIDTH = 10
 PLAYFIELD_HEIGHT = 20
@@ -459,6 +459,8 @@ function newAI(tetriminos)
     if nextID == #tetriminoIndices + 1 then
       playfieldUtil.evaluatePlayfield(playfield, e)
 
+      -- Expectimax with the next
+
       local fitness = computeFitness()
       if fitness < bestFitness then
         bestFitness = fitness
@@ -525,6 +527,20 @@ levelTableAccessAddress = 0x9808
 linesHighAddress = 0x0071
 linesLowAddress = 0x0070
 playStateAddress = 0x0068
+tStatHighAddress = 0x03F1
+tStatLowAddress = 0x03F0
+jStatHighAddress = 0x03F3
+jStatLowAddress = 0x03F2
+zStatHighAddress = 0x03F5
+zStatLowAddress = 0x03F4
+oStatHighAddress = 0x03F7
+oStatLowAddress = 0x03F6
+sStatHighAddress = 0x03F9
+sStatLowAddress = 0x03F8
+lStatHighAddress = 0x03FB
+lStatLowAddress = 0x03FA
+iStatHighAddress = 0x03FD
+iStatLowAddress = 0x03FC
 
 emptySquare = 0xEF
 
@@ -635,6 +651,87 @@ function readPlayfield(playfield)
   end
 end
 
+function readTetriminoStats()
+  -- reads it in as a decimal number
+  totalT =
+    string.format("%x", memory.readbyteunsigned(tStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(tStatLowAddress))
+  totalJ =
+    string.format("%x", memory.readbyteunsigned(jStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(jStatLowAddress))
+  totalZ =
+    string.format("%x", memory.readbyteunsigned(zStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(zStatLowAddress))
+  totalO =
+    string.format("%x", memory.readbyteunsigned(oStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(oStatLowAddress))
+  totalS =
+    string.format("%x", memory.readbyteunsigned(sStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(sStatLowAddress))
+  totalL =
+    string.format("%x", memory.readbyteunsigned(lStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(lStatLowAddress))
+  totalI =
+    string.format("%x", memory.readbyteunsigned(iStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(iStatLowAddress))
+
+  local answer = {
+    [1] = {tonumber(totalT), 1},
+    [2] = {tonumber(totalJ), 2},
+    [3] = {tonumber(totalZ), 3},
+    [4] = {tonumber(totalO), 4},
+    [5] = {tonumber(totalS), 5},
+    [6] = {tonumber(totalL), 6},
+    [7] = {tonumber(totalI), 7}
+  }
+  return answer
+end
+
+function predictNextTetrimino(stats, lastCouple, lastTetrimino)
+  for x = 1, #lastCouple do
+    stats[lastCouple[x]][1] = stats[lastCouple[x]][1] + 1
+  end
+  local total = 0
+  local max = 0
+  local maxTetriminoId = 0
+  for k, v in pairs(stats) do
+    total = total + v[1]
+    if max < v[1] then
+      maxTetriminoId = v[2]
+      max = v[1]
+    end
+  end
+  local percentageKey = {
+    [1] = .1473,
+    [2] = .1429,
+    [3] = .1429,
+    [4] = .1429,
+    [5] = .1473,
+    [6] = .1384,
+    [7] = .1384
+  }
+  local statisticallyRealTotal = max / percentageKey[maxTetriminoId]
+  local deficit = {}
+  local maxDeficit = 0
+  local maxDeficitId = 0
+  local pastMaxDeficitId = 0
+  local currDeficit = 0
+  for x = 1, 7 do
+    currDeficit = (percentageKey[x] * statisticallyRealTotal) - stats[x][1]
+    deficit[x] = currDeficit
+    if maxDeficit < currDeficit then
+      maxDeficit = currDeficit
+      pastMaxDeficitId = maxDeficitId
+      maxDeficitId = x
+    end
+  end
+  if maxDeficitId == lastTetrimino then
+    return pastMaxDeficitId
+  else
+    return maxDeficitId
+  end
+end
+
 function readTetrimino()
   return Tetriminos.TYPES[memory.readbyteunsigned(tetriminoIDAddress) + 1]
 end
@@ -654,8 +751,11 @@ function isPlaying(gameState)
 end
 
 function search(tetriminos, playfield, ai)
+  local stats = readTetriminoStats()
   tetriminos[1] = readTetrimino()
   tetriminos[2] = readNextTetrimino()
+  tetriminos[3] = predictNextTetrimino(stats, {tetriminos[1], tetriminos[2]}, tetriminos[2])
+
   readPlayfield(playfield)
 
   local state = ai.search(playfield, tetriminos)
@@ -740,7 +840,7 @@ end
 do
   local tetriminos = {0, 0}
   local playfield = createEmptyPlayfield()
-  local ai = newAI(2)
+  local ai = newAI(3)
   local movesIndex = 1
   local moves = {}
   local tetriminoType = 0
