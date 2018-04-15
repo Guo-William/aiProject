@@ -169,7 +169,7 @@ function newSearcher(searchListener)
   end
 
   function self.search(playfield, tetriminoType, id)
-    local maxRotation = #Tetriminos.ORIENTATIONS[tetriminoType]
+    local maxRotation = #(Tetriminos.ORIENTATIONS[tetriminoType])
 
     local mark = globalMark
     globalMark = globalMark + 1
@@ -536,7 +536,7 @@ function newAI(tetriminos)
 
     searchers[1].search(playfield, tetriminoIndices[1], 1)
 
-    return bestResult
+    return {bestResult, bestFitness}
   end
 
   for i = 1, tetriminos do
@@ -581,6 +581,20 @@ levelTableAccessAddress = 0x9808
 linesHighAddress = 0x0071
 linesLowAddress = 0x0070
 playStateAddress = 0x0068
+tStatHighAddress = 0x03F1
+tStatLowAddress = 0x03F0
+jStatHighAddress = 0x03F3
+jStatLowAddress = 0x03F2
+zStatHighAddress = 0x03F5
+zStatLowAddress = 0x03F4
+oStatHighAddress = 0x03F7
+oStatLowAddress = 0x03F6
+sStatHighAddress = 0x03F9
+sStatLowAddress = 0x03F8
+lStatHighAddress = 0x03FB
+lStatLowAddress = 0x03FA
+iStatHighAddress = 0x03FD
+iStatLowAddress = 0x03FC
 
 emptySquare = 0xEF
 
@@ -691,6 +705,74 @@ function readPlayfield(playfield)
   end
 end
 
+function readTetriminoStats()
+  -- reads it in as a decimal number
+  totalT =
+    string.format("%x", memory.readbyteunsigned(tStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(tStatLowAddress))
+  totalJ =
+    string.format("%x", memory.readbyteunsigned(jStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(jStatLowAddress))
+  totalZ =
+    string.format("%x", memory.readbyteunsigned(zStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(zStatLowAddress))
+  totalO =
+    string.format("%x", memory.readbyteunsigned(oStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(oStatLowAddress))
+  totalS =
+    string.format("%x", memory.readbyteunsigned(sStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(sStatLowAddress))
+  totalL =
+    string.format("%x", memory.readbyteunsigned(lStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(lStatLowAddress))
+  totalI =
+    string.format("%x", memory.readbyteunsigned(iStatHighAddress)) ..
+    string.format("%x", memory.readbyteunsigned(iStatLowAddress))
+
+  local answer = {
+    [1] = {tonumber(totalT), 1},
+    [2] = {tonumber(totalJ), 2},
+    [3] = {tonumber(totalZ), 3},
+    [4] = {tonumber(totalO), 4},
+    [5] = {tonumber(totalS), 5},
+    [6] = {tonumber(totalL), 6},
+    [7] = {tonumber(totalI), 7}
+  }
+  return answer
+end
+
+percentageKey = {
+  [1] = .1473,
+  [2] = .1429,
+  [3] = .1429,
+  [4] = .1429,
+  [5] = .1473,
+  [6] = .1384,
+  [7] = .1384
+}
+
+function predictNextTetrimino(stats, lastCouple)
+  for x = 1, #lastCouple do
+    stats[lastCouple[x]][1] = stats[lastCouple[x]][1] + 1
+  end
+  local total = 0
+  local max = 0
+  local maxTetriminoId = 0
+  for k, v in pairs(stats) do
+    total = total + v[1]
+    if max < v[1] then
+      maxTetriminoId = v[2]
+      max = v[1]
+    end
+  end
+  local statisticallyRealTotal = max / percentageKey[maxTetriminoId]
+  local nextProbabilities = {}
+  for x = 1, 7 do
+    nextProbabilities[x] = 1 - (stats[x][1] / statisticallyRealTotal)
+  end
+  return nextProbabilities
+end
+
 function readTetrimino()
   return Tetriminos.TYPES[memory.readbyteunsigned(tetriminoIDAddress) + 1]
 end
@@ -710,11 +792,26 @@ function isPlaying(gameState)
 end
 
 function search(tetriminos, playfield, ai)
+  local stats = readTetriminoStats()
   tetriminos[1] = readTetrimino()
   tetriminos[2] = readNextTetrimino()
-  readPlayfield(playfield)
+  local nextProbabilities = predictNextTetrimino(stats, {tetriminos[1], tetriminos[2]})
 
-  local state = ai.search(playfield, tetriminos)
+  local state = nil
+  local searchResults = nil
+  local minValue = 1000000000
+  local currVal = 0
+
+  for x = 1, 7 do
+    tetriminos[3] = x
+    readPlayfield(playfield)
+    searchResults = ai.search(playfield, tetriminos)
+    currVal = searchResults[2] * nextProbabilities[x]
+    if currVal < minValue then
+      minValue = currVal
+      state = searchResults[1]
+    end
+  end
 
   local result = {}
   while state ~= nil do
@@ -796,7 +893,7 @@ end
 do
   local tetriminos = {0, 0}
   local playfield = createEmptyPlayfield()
-  local ai = newAI(2)
+  local ai = newAI(3)
   local movesIndex = 1
   local moves = {}
   local tetriminoType = 0
