@@ -457,7 +457,6 @@ function newAI(tetriminos)
     local nextID = id + 1
 
     if nextID == #tetriminoIndices + 1 then
-      print(string.format("%.0f", nextID))
       playfieldUtil.evaluatePlayfield(playfield, e)
 
       local fitness = computeFitness()
@@ -481,7 +480,7 @@ function newAI(tetriminos)
 
     searchers[1].search(playfield, tetriminoIndices[1], 1)
 
-    return bestResult
+    return {bestResult, bestFitness}
   end
 
   for i = 1, tetriminos do
@@ -696,7 +695,7 @@ percentageKey = {
   [7] = .1384
 }
 
-function predictNextTetrimino(stats, lastCouple, lastTetrimino)
+function predictNextTetrimino(stats, lastCouple)
   for x = 1, #lastCouple do
     stats[lastCouple[x]][1] = stats[lastCouple[x]][1] + 1
   end
@@ -711,25 +710,11 @@ function predictNextTetrimino(stats, lastCouple, lastTetrimino)
     end
   end
   local statisticallyRealTotal = max / percentageKey[maxTetriminoId]
-  local deficit = {}
-  local maxDeficit = 0
-  local maxDeficitId = 1
-  local pastMaxDeficitId = 1
-  local currDeficit = 0
+  local nextProbabilities = {}
   for x = 1, 7 do
-    currDeficit = (percentageKey[x] * statisticallyRealTotal) - stats[x][1]
-    deficit[x] = currDeficit
-    if maxDeficit < currDeficit then
-      maxDeficit = currDeficit
-      pastMaxDeficitId = maxDeficitId
-      maxDeficitId = x
-    end
+    nextProbabilities[x] = 1 - (stats[x][1] / statisticallyRealTotal)
   end
-  if maxDeficitId == lastTetrimino then
-    return pastMaxDeficitId
-  else
-    return maxDeficitId
-  end
+  return nextProbabilities
 end
 
 function readTetrimino()
@@ -754,11 +739,23 @@ function search(tetriminos, playfield, ai)
   local stats = readTetriminoStats()
   tetriminos[1] = readTetrimino()
   tetriminos[2] = readNextTetrimino()
-  tetriminos[3] = predictNextTetrimino(stats, {tetriminos[1], tetriminos[2]}, tetriminos[2])
+  local nextProbabilities = predictNextTetrimino(stats, {tetriminos[1], tetriminos[2]})
 
-  readPlayfield(playfield)
+  local state = nil
+  local searchResults = nil
+  local minValue = 1000000000
+  local currVal = 0
 
-  local state = ai.search(playfield, tetriminos)
+  for x = 1, 7 do
+    tetriminos[3] = x
+    readPlayfield(playfield)
+    searchResults = ai.search(playfield, tetriminos)
+    currVal = searchResults[2] * nextProbabilities[x]
+    if currVal < minValue then
+      minValue = currVal
+      state = searchResults[1]
+    end
+  end
 
   local result = {}
   while state ~= nil do
