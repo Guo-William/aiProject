@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ]]
 -- This Lua script works with FCEUX 2.2.2 and Nintendo Tetris (USA version).
 
-PLAY_FAST = false -- disables drop movements
+PLAY_FAST = true -- disables drop movements
 
 PLAYFIELD_WIDTH = 10
 PLAYFIELD_HEIGHT = 20
@@ -277,15 +277,15 @@ function newPlayfieldUtil()
       end
     end
 
-    e.fifthRowFilled = 0
-    for x = 1, PLAYFIELD_WIDTH do
-      if playfield[5][x] ~= Tetriminos.NONE then
-        e.fifthRowFilled = e.fifthRowFilled + 1
-      end
-    end
+    -- e.fifthRowFilled = 0
+    -- for x = 1, PLAYFIELD_WIDTH do
+    --   if playfield[15][x] ~= Tetriminos.NONE then
+    --     e.fifthRowFilled = e.fifthRowFilled + 1
+    --   end
+    -- end
 
     e.bottomHoles = 0
-    for y = 1, 4 do
+    for y = 16, 19 do
       for x = 1, PLAYFIELD_WIDTH do
         if playfield[y][x] == Tetriminos.NONE then
           e.bottomHoles = e.bottomHoles + 1
@@ -450,33 +450,30 @@ function newAI(tetriminos)
     local totalClearedRows = 0
     if totalRows < 3 then
       totalClearedRows = 600.0 * totalRows
-    elseif totalRows == 3 then
-      totalClearedRows = 1.0 * totalRows
-    else
-      totalClearedRows = 0.0 * totalRows
+    elseif totalRows >= 3 then
+      totalClearedRows = -1.0 * totalRows
     end
 
-    if e.bottomHoles > 2 then
-      totalClearedRows = 1000 * e.bottomHoles
-    end
+    -- totalClearedRows = totalClearedRows + (500 * e.bottomHoles)
 
-    local totalLockHeight = WEIGHTS[2] * totalDropHeight
-    local totalWellCells = e.wells
-    local totalColumnHoles = 370.0 * e.holes
+    local totalLockHeight = 300 * totalDropHeight
+    local totalWellCells = 2 * e.wells
+    local totalColumnHoles = 500.0 * e.holes
     local totalColumnTransitions = WEIGHTS[5] * e.columnTransitions
     local totalRowTransitions = WEIGHTS[6] * e.rowTransitions
     -- local totalEmptySpaces = (370.0 * e.leftColumn)
 
     local totalEmptySpaces = 0
-    if e.fifthRowFilled > 6 then
-      totalEmptySpaces = (0.0 * e.leftColumn)
-    else
-      totalEmptySpaces = (370.0 * e.leftColumn)
-    end
+    -- if e.fifthRowFilled > 6 then
+    --   totalEmptySpaces = (0.0 * e.leftColumn)
+    -- else
+    --   totalEmptySpaces = (370.0 * e.leftColumn)
+    -- end
+    totalEmptySpaces = (370.0 * e.leftColumn)
 
-    if totalDropHeight > 12 then
-      totalLockHeight = 10
-    end
+    -- if totalDropHeight > 12 then
+    --   totalLockHeight = totalLockHeight *
+    -- end
 
     -- print(string.format("%.0f", totalClearedRows))
     -- print(e.leftColumn)
@@ -490,7 +487,7 @@ function newAI(tetriminos)
     local b = totalColumnHoles + totalColumnTransitions
     local c = totalRowTransitions + totalEmptySpaces
 
-    return a + b + c + e.bottomHoles * 100
+    return a + b + c
   end
 
   --[[
