@@ -169,7 +169,7 @@ function newSearcher(searchListener)
   end
 
   function self.search(playfield, tetriminoType, id)
-    local maxRotation = #Tetriminos.ORIENTATIONS[tetriminoType]
+    local maxRotation = #(Tetriminos.ORIENTATIONS[tetriminoType])
 
     local mark = globalMark
     globalMark = globalMark + 1
@@ -457,9 +457,8 @@ function newAI(tetriminos)
     local nextID = id + 1
 
     if nextID == #tetriminoIndices + 1 then
+      print(string.format("%.0f", nextID))
       playfieldUtil.evaluatePlayfield(playfield, e)
-
-      -- Expectimax with the next
 
       local fitness = computeFitness()
       if fitness < bestFitness then
@@ -687,6 +686,16 @@ function readTetriminoStats()
   return answer
 end
 
+percentageKey = {
+  [1] = .1473,
+  [2] = .1429,
+  [3] = .1429,
+  [4] = .1429,
+  [5] = .1473,
+  [6] = .1384,
+  [7] = .1384
+}
+
 function predictNextTetrimino(stats, lastCouple, lastTetrimino)
   for x = 1, #lastCouple do
     stats[lastCouple[x]][1] = stats[lastCouple[x]][1] + 1
@@ -701,20 +710,11 @@ function predictNextTetrimino(stats, lastCouple, lastTetrimino)
       max = v[1]
     end
   end
-  local percentageKey = {
-    [1] = .1473,
-    [2] = .1429,
-    [3] = .1429,
-    [4] = .1429,
-    [5] = .1473,
-    [6] = .1384,
-    [7] = .1384
-  }
   local statisticallyRealTotal = max / percentageKey[maxTetriminoId]
   local deficit = {}
   local maxDeficit = 0
-  local maxDeficitId = 0
-  local pastMaxDeficitId = 0
+  local maxDeficitId = 1
+  local pastMaxDeficitId = 1
   local currDeficit = 0
   for x = 1, 7 do
     currDeficit = (percentageKey[x] * statisticallyRealTotal) - stats[x][1]
